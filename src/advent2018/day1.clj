@@ -33,3 +33,16 @@
 
 (def output2
   (find-twice input))
+
+(defn find-twice2
+  "A better solution to part two with reduce!"
+  [input]
+  (->>
+    (reductions + (cycle input))
+    (reduce
+      (fn [seen? sum]
+        (if (seen? sum)
+          (reduced sum)
+          (conj seen? sum)))
+      #{0})))
+
