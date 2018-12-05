@@ -1,12 +1,14 @@
-(ns advent2018.day5)
+(ns advent2018.day5
+  (:require [clojure.string :as string])
+  (:import (java.util.regex Pattern)))
 
 (def input
-  (seq (slurp "input/day5.txt")))
+  (slurp "input/day5.txt"))
 
 (def lower #(Character/toLowerCase %))
 (def upper #(Character/toUpperCase %))
 
-(defn step [chars]
+(defn ^:deprecated step [chars]
   (loop [[c1 & [c2 & after-c2 :as after-c1]] chars, output []]
     (cond (not c1) output
           (not c2) (conj output c1)
@@ -16,27 +18,40 @@
 
           :else (recur after-c1 (conj output c1)))))
 
-(defn reacting [all-units]
-  (loop [units all-units]
-    (let [reduced-units (step units)]
-      (if (= reduced-units units)
-        reduced-units
-        (recur reduced-units)))))
+(def unit-types (map char (range (int \a) (inc (int \z)))))
+
+(def polymer-pattern
+  "RegExp pattern capturing components of a polymer (unit pairs and single units)"
+  (let [unit-pairs (mapcat (fn [c] [(str c (upper c)) (str (upper c) c)]) unit-types)
+        regexp (str "(" (string/join "|" unit-pairs) ")|(.)")
+        pattern (Pattern/compile regexp)]
+    pattern))
+
+(defn step-regexp
+  "A faster reaction step function using RegExp"
+  [input]
+  (let [polymer (apply str input)
+        matches (re-seq polymer-pattern polymer)
+        without-pairs (filter (comp nil? second) matches)]
+    (map first without-pairs)))
+
+(defn reacting [polymer]
+  (loop [polymer polymer]
+    (let [reacted-polymer (step-regexp polymer)]
+      (if (= (count reacted-polymer) (count polymer))
+        reacted-polymer
+        (recur reacted-polymer)))))
 
 (comment
   (println
-    "part 1"
-    (count (reacting input)))
+    "part 1:"
+    (count (reacting input))))
 
-  ; Alternative using RegExp??
-  (re-seq #"((?=[A-Z])\1|(?=[a-z])\1)" (str (take 20 input)))
-  (re-seq #"([A-Z][A-Z]|(?=[a-z])\1)" (str (take 20 input))))
-
-(defn remove-then-react [units]
-  (let [character-set (distinct (map upper units))]
-    (->>
-      (pmap #(count (reacting (remove #{% (lower %)} units))) character-set)
-      (apply min))))
+(defn remove-then-react [polymer]
+  (->>
+    (pmap #(count (reacting (remove #{% (upper %)} polymer)))
+          unit-types)
+    (apply min)))
 
 (comment
   (println
